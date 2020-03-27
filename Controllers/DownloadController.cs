@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
@@ -13,36 +14,53 @@ namespace SOBE.Controllers
     public class DownloadController : ControllerBase
     {
         private IWebHostEnvironment _env;
+        private string _storagePath;
 
         public DownloadController(IWebHostEnvironment env)
         {
             _env = env;
+            _storagePath = Path.GetTempPath();
         }
 
-        [HttpGet]
-        public ActionResult<RequestHandle> Get([FromQuery]string requestId)
+        [HttpGet, Route("status")]
+        public ActionResult<RequestHandle> GetStatus([FromQuery]string requestId)
         {
-            if (System.IO.File.Exists(requestId))
+            var dirPath = AbsPath(requestId);
+            var flag = Path.Combine(dirPath, "work.done");
+            if (System.IO.File.Exists(flag))
+                return Ok(new RequestHandle { Id = new Guid(requestId), Ready = true });
+            else if (System.IO.Directory.Exists(dirPath))
                 return Ok(new RequestHandle { Id = new Guid(requestId) });
-            else if (System.IO.File.Exists($"{requestId}_done"))
-                return Ok(new RequestHandle { Id = new Guid(requestId), Ready = true, Path = System.IO.File.ReadAllText($"{requestId}_done")});
             else
                 return NotFound();
         }
 
-        [HttpPost]
-        public async Task<ActionResult<RequestHandle>> Post(DownloadRequest downloadRequest)
+        [HttpGet]
+        public async Task<ActionResult> Get([FromQuery]string requestId)
         {
-            var downloadedName = downloadRequest.OutputName ?? Path.GetFileName(downloadRequest.FileUrl);
-            var downloadedPath = downloadedName;
+            var dirPath = AbsPath(requestId);
+            var flag = Path.Combine(dirPath, "work.done");
+            if (System.IO.File.Exists(flag))
+            {
+                var path = await System.IO.File.ReadAllTextAsync(flag);
+                var stream = System.IO.File.OpenRead(path);
+                return File(stream, "application/octet-stream");
+            }
+            else
+            {
+                return NotFound();
+            }
+        }
 
+        [HttpPost]
+        public ActionResult<RequestHandle> Post(DownloadRequest downloadRequest)
+        {
+            var outputName = downloadRequest.OutputName ?? Path.GetFileName(downloadRequest.FileUrl);
             var requestId = Guid.NewGuid();
-
+            var downloadDir = System.IO.Directory.CreateDirectory(AbsPath(requestId.ToString()));
             var result = new RequestHandle { Id = requestId, Ready = false };
 
-            await System.IO.File.WriteAllTextAsync(requestId.ToString(), string.Empty);
-
-            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadedPath, requestId));
+            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName));
 
             return Ok(result);
         }
@@ -51,11 +69,13 @@ namespace SOBE.Controllers
         {
             public Guid Id { get; set; }
             public bool Ready { get; set; }
-            public string Path { get; set; }
         }
 
-        private async Task ProcessFile(string fileUrl, string downloadedPath, Guid requestId)
+        private async Task ProcessFile(string fileUrl, string downloadDir, string outputName)
         {
+            var downloadedPath = Path.Combine(downloadDir, outputName);
+            var zippedPath = Path.Combine(downloadDir, $"{Path.GetFileNameWithoutExtension(outputName)}.zip");
+            // Download
             using (var client = new HttpClient())
             {
                 var response = await client.GetAsync(fileUrl);
@@ -67,8 +87,14 @@ namespace SOBE.Controllers
                     }
                 }
             }
-            System.IO.File.Delete(requestId.ToString());
-            await System.IO.File.WriteAllTextAsync($"{requestId}_done", downloadedPath);
+
+            // Zip
+            ZipFile.CreateFromDirectory(downloadDir, zippedPath);
+
+            System.IO.File.Delete(downloadedPath);
+            await System.IO.File.WriteAllTextAsync(Path.Combine(downloadDir, "work.done"), zippedPath);
         }
+
+        public string AbsPath(string fileName) => Path.Combine(_storagePath, fileName);
     }
 }
