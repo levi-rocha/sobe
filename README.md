@@ -12,6 +12,7 @@ dotnet run
 - Docker
 ```sh
 # Uses HTTP
+dotnet publish -c Release
 docker build -t sob .
 docker run --rm -dit -p 5000:80 --name=sob sob
 ```
