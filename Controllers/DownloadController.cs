@@ -60,7 +60,17 @@ namespace SOBE.Controllers
             var downloadDir = System.IO.Directory.CreateDirectory(AbsPath(requestId.ToString()));
             var result = new RequestHandle { Id = requestId, Ready = false };
 
-            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName));
+            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName)).ContinueWith((r) => {
+                if (r.IsCompletedSuccessfully)
+                    Console.WriteLine($"[ProcessFile] [{outputName}] Success");
+                else 
+                {
+                    foreach (var exception in r.Exception.InnerExceptions)
+                    {
+                        Console.Error.WriteLine($"Exception in [ProcessFile] [{outputName}]: {exception.Message}{Environment.NewLine} Stack Trace: {exception.StackTrace}");
+                    }
+                }
+            });
 
             return Ok(result);
         }
@@ -73,8 +83,11 @@ namespace SOBE.Controllers
 
         private async Task ProcessFile(string fileUrl, string downloadDir, string outputName)
         {
-            var downloadedPath = Path.Combine(downloadDir, outputName);
+            var srcPath = Path.Combine(downloadDir, "src");
+            System.IO.Directory.CreateDirectory(srcPath);
+            var downloadedPath = Path.Combine(srcPath, outputName);
             var zippedPath = Path.Combine(downloadDir, $"{Path.GetFileNameWithoutExtension(outputName)}.zip");
+            
             // Download
             using (var client = new HttpClient())
             {
@@ -89,9 +102,10 @@ namespace SOBE.Controllers
             }
 
             // Zip
-            ZipFile.CreateFromDirectory(downloadDir, zippedPath);
+            ZipFile.CreateFromDirectory(Path.Combine(downloadDir, "src"), zippedPath);
 
-            System.IO.File.Delete(downloadedPath);
+            // Cleanup
+            System.IO.Directory.Delete(srcPath, recursive: true);
             await System.IO.File.WriteAllTextAsync(Path.Combine(downloadDir, "work.done"), zippedPath);
         }
 
