@@ -27,13 +27,13 @@ curl -i -s -w "\n" http://localhost:5000/
 - Request Download
 ```sh
 curl -i -s -w "\n" http://localhost:5000/download -XPOST -H "Content-Type: application/json" -d '{"FileUrl": "http://example.com/example.exe", "OutputName": "myexe.exe"}'  
-# {"requestId": REQUESTID, "ready": false}
+# {"RequestId": REQUESTID, "Finished": false, "ReadyForDownload": false, "Message": "File successfully submitted for processing"}
 ```
 
 - Check Requested Download Status
 ```sh
 curl -i -s -w "\n" http://localhost:5000/download/status?requestId=REQUESTID  
-# {"requestId": REQUESTID, "ready": true}
+# {"RequestId": REQUESTID, "Finished": true, "ReadyForDownload": true, "Message": "File processed successfully"}
 ```
   
 - Download Zipped Processed File
