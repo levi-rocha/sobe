@@ -30,12 +30,15 @@ namespace SOBE.Controllers
         }
 
         [HttpGet, Route("status")]
-        public ActionResult<RequestHandle> GetStatus([FromQuery]string requestId)
+        public async Task<ActionResult<RequestHandle>> GetStatus([FromQuery]string requestId)
         {
             var dirPath = AbsPath(requestId);
-            var flag = Path.Combine(dirPath, "work.done");
-            if (System.IO.File.Exists(flag))
-                return Ok(new RequestHandle { Id = new Guid(requestId), Ready = true });
+            var successFlag = Path.Combine(dirPath, "work.done");
+            var errorFlag = Path.Combine(dirPath, "work.error");
+            if (System.IO.File.Exists(successFlag))
+                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, ReadyForDownload = true, Message = "File processed succesfully"});
+            else if (System.IO.File.Exists(errorFlag))
+                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, Message = await System.IO.File.ReadAllTextAsync(errorFlag)});
             else if (System.IO.Directory.Exists(dirPath))
                 return Ok(new RequestHandle { Id = new Guid(requestId) });
             else
@@ -65,18 +68,21 @@ namespace SOBE.Controllers
             var outputName = downloadRequest.OutputName ?? Path.GetFileName(downloadRequest.FileUrl);
             var requestId = Guid.NewGuid();
             var downloadDir = System.IO.Directory.CreateDirectory(AbsPath(requestId.ToString()));
-            var result = new RequestHandle { Id = requestId, Ready = false };
+            var result = new RequestHandle { Id = requestId, Message = "File successfully submitted for processing"};
 
-            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName)).ContinueWith((r) =>
+            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName)).ContinueWith(async (r) =>
             {
                 if (r.IsCompletedSuccessfully)
                     Console.WriteLine($"[ProcessFile] [{outputName}] Success");
                 else
                 {
+                    var errorMessage = new StringBuilder("Could not process the file.");
                     foreach (var exception in r.Exception.InnerExceptions)
                     {
                         Console.Error.WriteLine($"Exception in [ProcessFile] [{outputName}]: {exception.Message}{Environment.NewLine} Stack Trace: {exception.StackTrace}");
+                        errorMessage.Append($" Error: [{exception.Message}]");
                     }
+                    await System.IO.File.WriteAllTextAsync(Path.Combine(downloadDir.FullName, "work.error"), errorMessage.ToString());
                 }
             });
 
@@ -86,7 +92,9 @@ namespace SOBE.Controllers
         public class RequestHandle
         {
             public Guid Id { get; set; }
-            public bool Ready { get; set; }
+            public bool Finished { get; set; }
+            public bool ReadyForDownload { get; set; }
+            public string Message { get; set; }
         }
 
         private async Task ProcessFile(string fileUrl, string downloadDir, string outputName)
