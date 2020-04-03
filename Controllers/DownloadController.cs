@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Net.Mime;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -36,9 +37,9 @@ namespace SOBE.Controllers
             var successFlag = Path.Combine(dirPath, "work.done");
             var errorFlag = Path.Combine(dirPath, "work.error");
             if (System.IO.File.Exists(successFlag))
-                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, ReadyForDownload = true, Message = "File processed succesfully"});
+                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, ReadyForDownload = true, Message = "File processed succesfully" });
             else if (System.IO.File.Exists(errorFlag))
-                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, Message = await System.IO.File.ReadAllTextAsync(errorFlag)});
+                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, Message = await System.IO.File.ReadAllTextAsync(errorFlag) });
             else if (System.IO.Directory.Exists(dirPath))
                 return Ok(new RequestHandle { Id = new Guid(requestId) });
             else
@@ -53,8 +54,10 @@ namespace SOBE.Controllers
             if (System.IO.File.Exists(flag))
             {
                 var path = await System.IO.File.ReadAllTextAsync(flag);
+                var fileName = Path.GetFileName(path);
+
                 var stream = System.IO.File.OpenRead(path);
-                return File(stream, "application/octet-stream");
+                return File(stream, "application/octet-stream", fileName);
             }
             else
             {
@@ -68,7 +71,7 @@ namespace SOBE.Controllers
             var outputName = downloadRequest.OutputName ?? Path.GetFileName(downloadRequest.FileUrl);
             var requestId = Guid.NewGuid();
             var downloadDir = System.IO.Directory.CreateDirectory(AbsPath(requestId.ToString()));
-            var result = new RequestHandle { Id = requestId, Message = "File successfully submitted for processing"};
+            var result = new RequestHandle { Id = requestId, Message = "File successfully submitted for processing" };
 
             Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName)).ContinueWith(async (r) =>
             {

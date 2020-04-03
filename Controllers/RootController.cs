@@ -18,11 +18,20 @@ namespace SOBE.Controllers
         {
             return Content(@"Usage: 
 1. POST /download {'FileUrl': 'http://example.com/example.exe', 'OutputName': 'myfile.exe'}
-    result: {'requestId': 'REQUESTID', 'ready': false}
+    result: {
+        'readyForDownload' : false,
+        'finished' : false,
+        'id' : REQUESTID,
+        'message' : 'File successfully submitted for processing'
+    }
 2. GET /download/status?requestId=REQUESTID
-    result: {'requestId': 'REQUESTID', 'ready': true}
+    result: {
+        'readyForDownload' : true,
+        'finished' : true,
+        'id' : REQUESTID,
+    }
 3. GET /download?requestId=REQUESTID
-    result Content-Type: application/octet-stream
+    result: Content-Type: application/octet-stream | Content-Disposition: attachment
 ");
         }
     }
