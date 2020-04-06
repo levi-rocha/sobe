@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.Contracts;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
@@ -30,42 +31,12 @@ namespace SOBE.Controllers
             _storagePath = Path.GetTempPath();
         }
 
-        [HttpGet, Route("status")]
-        public async Task<ActionResult<RequestHandle>> GetStatus([FromQuery]string requestId)
-        {
-            var dirPath = AbsPath(requestId);
-            var successFlag = Path.Combine(dirPath, "work.done");
-            var errorFlag = Path.Combine(dirPath, "work.error");
-            if (System.IO.File.Exists(successFlag))
-                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, ReadyForDownload = true, Message = "File processed succesfully" });
-            else if (System.IO.File.Exists(errorFlag))
-                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, Message = await System.IO.File.ReadAllTextAsync(errorFlag) });
-            else if (System.IO.Directory.Exists(dirPath))
-                return Ok(new RequestHandle { Id = new Guid(requestId) });
-            else
-                return NotFound();
-        }
-
-        [HttpGet]
-        public async Task<ActionResult> Get([FromQuery]string requestId)
-        {
-            var dirPath = AbsPath(requestId);
-            var flag = Path.Combine(dirPath, "work.done");
-            if (System.IO.File.Exists(flag))
-            {
-                var path = await System.IO.File.ReadAllTextAsync(flag);
-                var fileName = Path.GetFileName(path);
-
-                var stream = System.IO.File.OpenRead(path);
-                return File(stream, "application/octet-stream", fileName);
-            }
-            else
-            {
-                return NotFound();
-            }
-        }
-
+        /// <summary>
+        /// Creates a new download request
+        /// </summary>
+        /// <response code="200">If request was successfully submitted. Includes request ID.</response>
         [HttpPost]
+        [Produces("application/json")]
         public ActionResult<RequestHandle> Post(DownloadRequest downloadRequest)
         {
             var outputName = downloadRequest.OutputName ?? Path.GetFileName(downloadRequest.FileUrl);
@@ -91,6 +62,60 @@ namespace SOBE.Controllers
 
             return Ok(result);
         }
+
+        /// <summary>
+        /// Retrieves the status for a previously created download request
+        /// </summary>
+        /// <response code="200">Returns the status of the request</response>
+        /// <response code="400">If no requestId was specified</response>
+        /// <response code="404">If no request was found for the specified requestId</response>  
+        [HttpGet, Route("status")]
+        [Produces("application/json")]
+        public async Task<ActionResult<RequestHandle>> GetStatus([FromQuery]string requestId)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+                return BadRequest("No requestId was specified");
+            var dirPath = AbsPath(requestId);
+            var successFlag = Path.Combine(dirPath, "work.done");
+            var errorFlag = Path.Combine(dirPath, "work.error");
+            if (System.IO.File.Exists(successFlag))
+                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, ReadyForDownload = true, Message = "File processed succesfully" });
+            else if (System.IO.File.Exists(errorFlag))
+                return Ok(new RequestHandle { Id = new Guid(requestId), Finished = true, Message = await System.IO.File.ReadAllTextAsync(errorFlag) });
+            else if (System.IO.Directory.Exists(dirPath))
+                return Ok(new RequestHandle { Id = new Guid(requestId) });
+            else
+                return NotFound();
+        }
+
+        /// <summary>
+        /// Downloads the result of a request, if the request was succesful
+        /// </summary>
+        /// <response code="200">Returns the file for download</response>
+        /// <response code="400">If no requestId was specified</response>
+        /// <response code="404">If no finished request was found for the specified requestId</response>  
+        [HttpGet]
+        public async Task<ActionResult> Get([FromQuery]string requestId)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+                return BadRequest("No requestId was specified");
+            var dirPath = AbsPath(requestId);
+            var flag = Path.Combine(dirPath, "work.done");
+            if (System.IO.File.Exists(flag))
+            {
+                var path = await System.IO.File.ReadAllTextAsync(flag);
+                var fileName = Path.GetFileName(path);
+
+                var stream = System.IO.File.OpenRead(path);
+                return File(stream, "application/octet-stream", fileName);
+            }
+            else
+            {
+                return NotFound();
+            }
+        }
+
+
 
         public class RequestHandle
         {
@@ -211,6 +236,6 @@ namespace SOBE.Controllers
                 throw new Exception($"VirusTotal error! Response code: {response.response_code} | Message: {response.verbose_msg}");
         }
 
-        public string AbsPath(string fileName) => Path.Combine(_storagePath, fileName);
+        private string AbsPath(string fileName) => Path.Combine(_storagePath, fileName);
     }
 }
