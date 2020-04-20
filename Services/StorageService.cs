@@ -25,7 +25,7 @@ public class LocalStorageService : IStorageService
     }
 
     // Will not work if path has more than 1 folders. Fix only if worth the time
-    private static string GetFullPath(string fileName, string path)
+    public string GetFullPath(string fileName, string path)
     {
         var basePath = string.IsNullOrWhiteSpace(path) ? BASE_PATH : Path.Combine(BASE_PATH, path);
         if (!Directory.Exists(basePath))
