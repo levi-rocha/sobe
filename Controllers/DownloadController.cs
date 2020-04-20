@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using SOBE.Models;
+using SOBE.Services;
 
 namespace SOBE.Controllers
 {
@@ -24,11 +25,13 @@ namespace SOBE.Controllers
         private const string ENDPOINT_VIRUSTOTAL_SCAN = "https://www.virustotal.com/vtapi/v2/file/scan";
         private IWebHostEnvironment _env;
         private string _storagePath;
+        private readonly IQueueService _queue;
 
-        public DownloadController(IWebHostEnvironment env)
+        public DownloadController(IWebHostEnvironment env, IQueueService queue)
         {
             _env = env;
             _storagePath = Path.GetTempPath();
+            _queue = queue;
         }
 
         /// <summary>
@@ -43,23 +46,22 @@ namespace SOBE.Controllers
             var requestId = Guid.NewGuid();
             var downloadDir = System.IO.Directory.CreateDirectory(AbsPath(requestId.ToString()));
             var result = new RequestHandle { Id = requestId, Message = "File successfully submitted for processing" };
-
-            Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName)).ContinueWith(async (r) =>
-            {
-                if (r.IsCompletedSuccessfully)
-                    Console.WriteLine($"[ProcessFile] [{outputName}] Success");
-                else
-                {
-                    var errorMessage = new StringBuilder("Could not process the file.");
-                    foreach (var exception in r.Exception.InnerExceptions)
-                    {
-                        Console.Error.WriteLine($"Exception in [ProcessFile] [{outputName}]: {exception.Message}{Environment.NewLine} Stack Trace: {exception.StackTrace}");
-                        errorMessage.Append($" Error: [{exception.Message}]");
-                    }
-                    await System.IO.File.WriteAllTextAsync(Path.Combine(downloadDir.FullName, "work.error"), errorMessage.ToString());
-                }
-            });
-
+            _queue.SendMessage(new DownloadRequestMessage() {FileUrl = downloadRequest.FileUrl, FileName = outputName, RequestId = requestId.ToString() });
+            // Task.Run(async () => await ProcessFile(downloadRequest.FileUrl, downloadDir.FullName, outputName)).ContinueWith(async (r) =>
+            // {
+            //     if (r.IsCompletedSuccessfully)
+            //         Console.WriteLine($"[ProcessFile] [{outputName}] Success");
+            //     else
+            //     {
+            //         var errorMessage = new StringBuilder("Could not process the file.");
+            //         foreach (var exception in r.Exception.InnerExceptions)
+            //         {
+            //             Console.Error.WriteLine($"Exception in [ProcessFile] [{outputName}]: {exception.Message}{Environment.NewLine} Stack Trace: {exception.StackTrace}");
+            //             errorMessage.Append($" Error: [{exception.Message}]");
+            //         }
+            //         await System.IO.File.WriteAllTextAsync(Path.Combine(downloadDir.FullName, "work.error"), errorMessage.ToString());
+            //     }
+            // });
             return Ok(result);
         }
 

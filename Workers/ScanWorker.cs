@@ -6,14 +6,15 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SOBE.Services;
 
-public class DownloadWorker : BackgroundService
+public class ScanWorker : BackgroundService
 {
     private readonly ILogger _logger;
     private readonly IServiceProvider _services;
     private IQueueService _queueService;
     private IDownloadService _downloadService;
+    private IScanService _scanService;
 
-    public DownloadWorker(IServiceProvider services, ILogger<DownloadWorker> logger)
+    public ScanWorker(IServiceProvider services, ILogger<DownloadWorker> logger)
     {
         _logger = logger;
         _services = services;
@@ -21,12 +22,13 @@ public class DownloadWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stopToken)
     {
-        _logger.LogInformation("Download Worker starting");
+        _logger.LogInformation("Scan Worker starting");
         var applicationStoppingToken = _services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
         using (var scope = _services.CreateScope())
         {
             _queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
             _downloadService = scope.ServiceProvider.GetRequiredService<IDownloadService>();
+            _scanService = scope.ServiceProvider.GetRequiredService<IScanService>();
             while (!stopToken.IsCancellationRequested && !applicationStoppingToken.IsCancellationRequested)
             {
                 await DoWorkAsync();
@@ -36,30 +38,42 @@ public class DownloadWorker : BackgroundService
 
     public async Task DoWorkAsync()
     {
-        _logger.LogDebug("Download worker run started");
+        _logger.LogDebug("Scan worker run started");
         var msg = _queueService.ReceiveDownloadRequest();
         if (msg != null)
         {
-            var sha1 = await ProcessRequest(msg);
-            msg.Sha1 = sha1;
-            ForwardMessage(msg);
-            _logger.LogDebug("Download worker run finished");
+            bool isSafe = false;
+            var scanned = TryScan(msg.Sha1, out isSafe);
+            if (scanned)
+            {
+                //todo: check isSafe and forward zip if true, forward error if false
+                ForwardMessage(msg);
+            }
+            else
+                RequestScan(msg);
+            
+            _logger.LogDebug("Scan worker run finished");
         }
         else
         {
-            _logger.LogDebug("No download message received");
-            Thread.Sleep(5000); //todo: extract and change
+            _logger.LogDebug("No scan message received");
+            Thread.Sleep(TimeSpan.FromSeconds(30)); //todo: extract and change
         }
     }
 
-    public async Task<string> ProcessRequest(DownloadRequestMessage request)
+    public bool TryScan(string sha1, out bool isSafe)
     {
-        _logger.LogInformation($"Downloading request {request.RequestId}");
-        var sha1 = await _downloadService.DownloadAsync(request.FileUrl, request.FileName, request.RequestId);
-        _logger.LogInformation($"Finished download for request {request.RequestId}");
-        return sha1;
+        //todo: try catch scanService.IsSafe
+        isSafe = false;
+        return false;
     }
 
+    public void RequestScan(ScanRequestMessage msg)
+    {
+        //todo: download and scanService.RequestScans
+    }
+
+    //todo: replace with forward options (zip, error)
     public void ForwardMessage(DownloadRequestMessage message)
     {
         _logger.LogDebug($"Forwarding scan request for {message.RequestId}");
@@ -76,7 +90,7 @@ public class DownloadWorker : BackgroundService
     public override async Task StopAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "Download worker is stopping.");
+            "Scan worker is stopping.");
 
         await Task.CompletedTask;
     }

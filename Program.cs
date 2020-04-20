@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SOBE.Services;
 
 namespace SOBE
 {
@@ -21,6 +23,13 @@ namespace SOBE
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
+                }).ConfigureServices(services =>
+                {
+                    services.AddSingleton<IQueueService, MemoryQueueService>();
+                    services.AddHttpClient<IDownloadService, LocalDownloadService>();
+                    services.AddScoped<IStorageService, LocalStorageService>();
+                    services.AddScoped<LocalStorageService, LocalStorageService>();
+                    services.AddHostedService<DownloadWorker>();
                 });
     }
 }
