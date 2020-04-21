@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,12 @@ public class DownloadWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stopToken)
     {
         _logger.LogInformation("Download Worker starting");
+        await StartWorkerAsync(stopToken);
+    }
+
+    private async Task StartWorkerAsync(CancellationToken stopToken)
+    {
+        await Task.Yield();
         var applicationStoppingToken = _services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
         using (var scope = _services.CreateScope())
         {
@@ -48,7 +55,7 @@ public class DownloadWorker : BackgroundService
         else
         {
             _logger.LogDebug("No download message received");
-            Thread.Sleep(5000); //todo: extract and change
+            Thread.Sleep(TimeSpan.FromSeconds(20)); //todo: extract and change
         }
     }
 
@@ -67,7 +74,7 @@ public class DownloadWorker : BackgroundService
         {
             RequestId = message.RequestId,
             Sha1 = message.Sha1,
-            FilePath = message.FileName
+            FilePath = Path.Combine(message.RequestId, message.FileName)
         };
         _queueService.SendMessage(nextMessage);
         _logger.LogDebug($"Forwarded scan request for {message.RequestId}");

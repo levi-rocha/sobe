@@ -1,5 +1,6 @@
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 public interface IStorageService
 {
@@ -12,8 +13,11 @@ public class LocalStorageService : IStorageService
 {
     private readonly static string BASE_PATH = Path.Combine(Path.GetTempPath(), "SOBE");
 
-    public LocalStorageService()
+    private readonly ILogger _logger;
+
+    public LocalStorageService(ILogger<LocalStorageService> logger)
     {
+        _logger = logger;
         if (!Directory.Exists(BASE_PATH))
             Directory.CreateDirectory(BASE_PATH);
     }
@@ -36,6 +40,7 @@ public class LocalStorageService : IStorageService
     public async Task<Stream> GetAsStreamAsync(string fileName, string path = null)
     {
         var fullPath = GetFullPath(fileName, path);
+        _logger.LogDebug($"fullPath: {fullPath}");
         if (!File.Exists(fullPath))
         {
             throw new FileNotFoundException(); //todo: replace with custom exception
