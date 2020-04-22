@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 public interface IZipService
 {
-    Task<Stream> Zip(Stream input);
+    Task<Stream> Zip(Stream input, string fileName);
 }
 
 public class LocalZipService : IZipService
@@ -28,5 +28,7 @@ public class LocalZipService : IZipService
                 var entry = zipArchive.CreateEntryFromFile(tempFile, fileName);
             }
         }
+        File.Delete(tempFile);
+        return new DeleteOnDisposeFileStream(zipFile);
     }
 }

@@ -61,7 +61,7 @@ public class ScanWorker : BackgroundService
             else
             {
                 _logger.LogInformation($"No previous security scan report found for request {msg.RequestId}");
-                //await RequestScanAsync(msg);
+                await RequestScanAsync(msg);
                 RequeueMessage(msg);
             }
 
@@ -124,6 +124,7 @@ public class ScanWorker : BackgroundService
         {
             RequestId = message.RequestId,
             Sha1 = message.Sha1,
+            FileName = message.FileName,
             FilePath = message.FilePath
         };
         _queueService.SendMessage(nextMessage);
@@ -137,7 +138,6 @@ public class ScanWorker : BackgroundService
         {
             RequestId = message.RequestId,
             Sha1 = message.Sha1,
-            FilePath = message.FilePath,
             RequestResult = RequestResult.Error,
             Message = errorMessage
         };

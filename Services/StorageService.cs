@@ -1,12 +1,14 @@
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 public interface IStorageService
 {
-    Task WriteAsync(Stream stream, string fileName, string path = null);
-    Task<Stream> GetAsStreamAsync(string fileName, string path = null);
-    bool Exists(string fileName, string path = null);
+    Task WriteAsync(Stream stream, string filePath);
+    Task<Stream> GetAsStreamAsync(string filePath);
+    bool Exists(string filePath);
+    Task DeleteAsync(string filePath);
 }
 
 public class LocalStorageService : IStorageService
@@ -22,24 +24,18 @@ public class LocalStorageService : IStorageService
             Directory.CreateDirectory(BASE_PATH);
     }
 
-    public bool Exists(string fileName, string path = null)
+    public bool Exists(string filePath)
     {
-        var fullPath = GetFullPath(fileName, path);
+        var fullPath = GetFullPath(filePath);
         return Directory.Exists(fullPath);
     }
 
-    // Will not work if path has more than 1 folders. Fix only if worth the time
-    public string GetFullPath(string fileName, string path)
-    {
-        var basePath = string.IsNullOrWhiteSpace(path) ? BASE_PATH : Path.Combine(BASE_PATH, path);
-        if (!Directory.Exists(basePath))
-            Directory.CreateDirectory(basePath);
-        return Path.Combine(basePath, fileName);
-    }
+    public string GetFullPath(string filePath)
+        => Path.Combine(BASE_PATH, filePath);
 
-    public async Task<Stream> GetAsStreamAsync(string fileName, string path = null)
+    public async Task<Stream> GetAsStreamAsync(string filePath)
     {
-        var fullPath = GetFullPath(fileName, path);
+        var fullPath = GetFullPath(filePath);
         _logger.LogDebug($"fullPath: {fullPath}");
         if (!File.Exists(fullPath))
         {
@@ -53,12 +49,21 @@ public class LocalStorageService : IStorageService
         return memoryStream;
     }
 
-    public async Task WriteAsync(Stream stream, string fileName, string path = null)
+    public async Task WriteAsync(Stream stream, string filePath)
     {
-        var fullPath = GetFullPath(fileName, path);
+        var fullPath = GetFullPath(filePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
         using (var fs = File.OpenWrite(fullPath))
         {
             await stream.CopyToAsync(fs);
         }
+    }
+
+    public Task DeleteAsync(string filePath)
+    {
+        var fullPath = GetFullPath(filePath);
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
+        return Task.FromResult(0);
     }
 }

@@ -8,11 +8,11 @@ namespace SOBE.Services
     {
         public string RequestId { get; set; }
         public string Sha1 { get; set; }
+        public string FileName { get; set; }
     }
 
     public class DownloadRequestMessage : RequestMessage
     {
-        public string FileName { get; set; }
         public string FileUrl { get; set; }
     }
 
@@ -51,11 +51,8 @@ namespace SOBE.Services
     public class MemoryQueueService : IQueueService
     {
         private ConcurrentQueue<DownloadRequestMessage> _downloadRequests = new ConcurrentQueue<DownloadRequestMessage>();
-        private ConcurrentQueue<DownloadRequestMessage> _onFlightDownloadRequests = new ConcurrentQueue<DownloadRequestMessage>();
         private ConcurrentQueue<ScanRequestMessage> _scanRequests = new ConcurrentQueue<ScanRequestMessage>();
-        private ConcurrentQueue<ScanRequestMessage> _onFlightScanRequests = new ConcurrentQueue<ScanRequestMessage>();
         private ConcurrentQueue<ZipRequestMessage> _zipRequests = new ConcurrentQueue<ZipRequestMessage>();
-        private ConcurrentQueue<ZipRequestMessage> _onFlightZipRequests = new ConcurrentQueue<ZipRequestMessage>();
         private ConcurrentQueue<FinishedRequestMessage> _finishedRequests = new ConcurrentQueue<FinishedRequestMessage>();
         private readonly ILogger _logger;
 
@@ -69,7 +66,6 @@ namespace SOBE.Services
             DownloadRequestMessage message;
             if (_downloadRequests.TryDequeue(out message))
             {
-                _onFlightDownloadRequests.Enqueue(message);
                 _logger.LogInformation($"Message {message.RequestId} dequeued from DOWNLOAD queue");
                 return message;
             }
@@ -84,7 +80,6 @@ namespace SOBE.Services
             ScanRequestMessage message;
             if (_scanRequests.TryDequeue(out message))
             {
-                _onFlightScanRequests.Enqueue(message);
                 _logger.LogInformation($"Message {message.RequestId} dequeued from SCAN queue");
                 return message;
             }
@@ -99,7 +94,6 @@ namespace SOBE.Services
             ZipRequestMessage message;
             if (_zipRequests.TryDequeue(out message))
             {
-                _onFlightZipRequests.Enqueue(message);
                 _logger.LogInformation($"Message {message.RequestId} dequeued from ZIP queue");
                 return message;
             }

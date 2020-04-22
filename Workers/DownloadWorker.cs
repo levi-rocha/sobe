@@ -49,6 +49,7 @@ public class DownloadWorker : BackgroundService
         {
             var sha1 = await ProcessRequest(msg);
             msg.Sha1 = sha1;
+            //todo: checek sha1.zip exists, if yes forward 'already exists' message
             ForwardMessage(msg);
             _logger.LogDebug("Download worker run finished");
         }
@@ -74,6 +75,7 @@ public class DownloadWorker : BackgroundService
         {
             RequestId = message.RequestId,
             Sha1 = message.Sha1,
+            FileName = message.FileName,
             FilePath = Path.Combine(message.RequestId, message.FileName)
         };
         _queueService.SendMessage(nextMessage);
