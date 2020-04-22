@@ -21,7 +21,7 @@ public class LocalZipService : IZipService
         {
             await input.CopyToAsync(fs);
         }
-        using (var fs = File.OpenWrite(zipFile))
+        using (var fs = File.Open(zipFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
         {
             using (var zipArchive = new ZipArchive(fs, ZipArchiveMode.Update))
             {

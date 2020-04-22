@@ -48,22 +48,31 @@ public class ZipWorker : BackgroundService
         var msg = _queueService.ReceiveZipRequest();
         if (msg != null)
         {
-            var zipPath = $"{msg.Sha1}.zip";
-            using (var fileStream = await _storageService.GetAsStreamAsync(msg.FilePath))
+            try
             {
-                using (var zipStream = await _zipService.Zip(fileStream, msg.FileName))
+                var zipPath = $"{msg.Sha1}.zip";
+                using (var fileStream = await _storageService.GetAsStreamAsync(msg.FilePath))
                 {
-                    await _storageService.WriteAsync(zipStream, zipPath);
+                    using (var zipStream = await _zipService.Zip(fileStream, msg.FileName))
+                    {
+                        await _storageService.WriteAsync(zipStream, zipPath);
+                    }
                 }
+                await _storageService.DeleteAsync(msg.RequestId);
+                ForwardMessage(msg, zipPath);
+            } 
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                //requeue message
+                _queueService.SendMessage(msg);
             }
-            await _storageService.DeleteAsync(msg.FilePath);
-            ForwardMessage(msg, zipPath);
             _logger.LogDebug("Zip worker run finished");
         }
         else
         {
             _logger.LogDebug("No Zip message received");
-            Thread.Sleep(TimeSpan.FromSeconds(30)); //todo: extract and change
+            Thread.Sleep(TimeSpan.FromSeconds(25)); //todo: extract and change
         }
     }
 

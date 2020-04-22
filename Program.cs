@@ -26,13 +26,13 @@ namespace SOBE
                 }).ConfigureServices(services =>
                 {
                     services.AddSingleton<IQueueService, MemoryQueueService>();
-                    services.AddHttpClient<IDownloadService, LocalDownloadService>();
                     services.AddHttpClient<IScanService, VirusTotalScanService>();
-                    services.AddScoped<IStorageService, LocalStorageService>();
-                    services.AddScoped<LocalStorageService, LocalStorageService>();
+                    services.AddHttpClient<IStorageService, LocalStorageService>();
+                    services.AddScoped<IZipService, LocalZipService>();
 
                     services.AddHostedService<DownloadWorker>();
                     services.AddHostedService<ScanWorker>();
+                    services.AddHostedService<ZipWorker>();
                 });
     }
 }

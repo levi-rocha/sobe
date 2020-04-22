@@ -12,7 +12,7 @@ public class DownloadWorker : BackgroundService
     private readonly ILogger _logger;
     private readonly IServiceProvider _services;
     private IQueueService _queueService;
-    private IDownloadService _downloadService;
+    private IStorageService _storageService;
 
     public DownloadWorker(IServiceProvider services, ILogger<DownloadWorker> logger)
     {
@@ -33,7 +33,7 @@ public class DownloadWorker : BackgroundService
         using (var scope = _services.CreateScope())
         {
             _queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
-            _downloadService = scope.ServiceProvider.GetRequiredService<IDownloadService>();
+            _storageService = scope.ServiceProvider.GetRequiredService<IStorageService>();
             while (!stopToken.IsCancellationRequested && !applicationStoppingToken.IsCancellationRequested)
             {
                 await DoWorkAsync();
@@ -49,8 +49,15 @@ public class DownloadWorker : BackgroundService
         {
             var sha1 = await ProcessRequest(msg);
             msg.Sha1 = sha1;
-            //todo: checek sha1.zip exists, if yes forward 'already exists' message
-            ForwardMessage(msg);
+            _logger.LogDebug($"SHA1 for request {msg.RequestId} is {sha1}");
+            var zipPath = $"{sha1}.zip";
+            if (_storageService.Exists(zipPath))
+            {
+                ForwardAlreadyExistsMessage(msg, zipPath);
+                await _storageService.DeleteAsync(msg.RequestId);
+            }
+            else
+                ForwardMessage(msg);
             _logger.LogDebug("Download worker run finished");
         }
         else
@@ -60,10 +67,24 @@ public class DownloadWorker : BackgroundService
         }
     }
 
+    private void ForwardAlreadyExistsMessage(DownloadRequestMessage message, string zipPath)
+    {
+        _logger.LogDebug($"Registering request {message.RequestId} as finished: Already exists");
+        var nextMessage = new FinishedRequestMessage()
+        {
+            RequestId = message.RequestId,
+            Sha1 = message.Sha1,
+            FilePath = zipPath,
+            RequestResult = RequestResult.ReadyForDownload
+        };
+        _queueService.SendMessage(nextMessage);
+        _logger.LogDebug($"Registered request {message.RequestId} as finished");
+    }
+
     public async Task<string> ProcessRequest(DownloadRequestMessage request)
     {
         _logger.LogInformation($"Downloading request {request.RequestId}");
-        var sha1 = await _downloadService.DownloadAsync(request.FileUrl, request.FileName, request.RequestId);
+        var sha1 = await _storageService.DownloadFromUrlAsync(request.FileUrl, Path.Combine(request.RequestId, request.FileName));
         _logger.LogInformation($"Finished download for request {request.RequestId}");
         return sha1;
     }

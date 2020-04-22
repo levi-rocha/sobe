@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 public interface IDownloadService
 {
-    Task<string> DownloadAsync(string fileUrl, string fileName, string destinationPath);
+    Task<string> DownloadAsync(string fileUrl, string fileName);
 }
 
 public class LocalDownloadService : IDownloadService
@@ -21,13 +21,13 @@ public class LocalDownloadService : IDownloadService
         _storageService = storageService;
     }
 
-    public async Task<string> DownloadAsync(string fileUrl, string fileName, string destinationPath)
+    public async Task<string> DownloadAsync(string fileUrl, string fileName)
     {
         var response = await _httpClient.GetAsync(fileUrl);
         string sha1 = string.Empty;
         if (response.IsSuccessStatusCode)
         {
-            var path = _storageService.GetFullPath(fileName, destinationPath);
+            var path = _storageService.GetFullPath(fileName);
             using (var fs = File.Create(path))
             {
                 await response.Content.CopyToAsync(fs);

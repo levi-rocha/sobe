@@ -111,6 +111,7 @@ public class ScanWorker : BackgroundService
         {
             RequestId = message.RequestId,
             Sha1 = message.Sha1,
+            FileName = message.FileName,
             FilePath = message.FilePath
         };
         _queueService.SendMessage(nextMessage);
