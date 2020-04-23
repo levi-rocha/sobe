@@ -1,0 +1,9 @@
+- implement HttpMemoryQueueService which uses existing QueueService via an API
+- separate HttpMemoryQueue into a different project
+- separate workers into individual projects
+- implement error tolerance between service communications
+- implement AzureStorageService (as a separate project)
+- run solution as individual docker containers
+- test scalability of individual containers
+- choose a queue service to replace MemoryQueue
+- (...)

@@ -39,7 +39,9 @@ public class LocalStorageService : IStorageService
         using (var fs = File.Create(path))
         {
             await responseStream.CopyToAsync(fs);
+            fs.Seek(0, SeekOrigin.Begin);
             sha1 = CalculateSHA1(fs);
+            _logger.LogDebug($"Calculated SHA1: {sha1}");
         }
         return sha1;
     }
