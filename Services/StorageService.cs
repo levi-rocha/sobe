@@ -72,7 +72,7 @@ public class LocalStorageService : IStorageService
     public string GetFullPath(string filePath)
         => Path.Combine(BASE_PATH, filePath);
 
-    public async Task<Stream> GetAsStreamAsync(string filePath)
+    public Task<Stream> GetAsStreamAsync(string filePath)
     {
         var fullPath = GetFullPath(filePath);
         _logger.LogDebug($"fullPath: {fullPath}");
@@ -80,12 +80,7 @@ public class LocalStorageService : IStorageService
         {
             throw new FileNotFoundException(); //todo: replace with custom exception
         }
-        var memoryStream = new MemoryStream();
-        using (var fs = File.OpenRead(fullPath))
-        {
-            await fs.CopyToAsync(memoryStream);
-        }
-        return memoryStream;
+        return Task.FromResult((Stream)(File.OpenRead(fullPath)));
     }
 
     public async Task WriteAsync(Stream stream, string filePath)

@@ -15,7 +15,7 @@ public class LocalZipService : IZipService
     public async Task<Stream> Zip(Stream input, string fileName)
     {
         var tempId = new Guid().ToString();
-        var tempFile = Path.Combine(TempPath, tempId);
+        var tempFile = Path.Combine(TempPath, "SOBE", tempId);
         var zipFile = $"{tempFile}.zip";
         using (var fs = File.OpenWrite(tempFile))
         {
