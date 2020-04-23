@@ -87,10 +87,8 @@ namespace SOBE.Controllers
 
             if (finishedMsg?.RequestResult == RequestResult.ReadyForDownload)
             {
-                using (var stream = await _storageService.GetAsStreamAsync(finishedMsg.FilePath))
-                {
-                    return File(stream, "application/octet-stream", finishedMsg.FileName);
-                }
+                var stream = await _storageService.GetAsStreamAsync(finishedMsg.FilePath);
+                return File(stream, "application/octet-stream", finishedMsg.FileName);
             }
             return NotFound($"No request ready to download found for Id {requestId}");
         }
