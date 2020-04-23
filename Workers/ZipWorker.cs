@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,9 +64,8 @@ public class ZipWorker : BackgroundService
             } 
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
-                //requeue message
-                _queueService.SendMessage(msg);
+                _logger.LogError($"Error processing request {msg.RequestId}: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
+                ForwardError(msg, ex.Message);
             }
             _logger.LogDebug("Zip worker run finished");
         }
@@ -83,6 +83,7 @@ public class ZipWorker : BackgroundService
         {
             RequestId = message.RequestId,
             Sha1 = message.Sha1,
+            FileName = Path.GetFileName(zipPath),
             FilePath = zipPath,
             RequestResult = RequestResult.ReadyForDownload,
             Message = "File processed successfuly"
@@ -91,9 +92,8 @@ public class ZipWorker : BackgroundService
         _logger.LogDebug($"Registered finished request for {message.RequestId}");
     }
 
-    public void ForwardError(ScanRequestMessage message, string errorMessage)
+    public void ForwardError(ZipRequestMessage message, string errorMessage)
     {
-        //todo: add try catch to DoWork and use this to forward any error
         _logger.LogDebug($"Registering error for {message.RequestId}. Error message: {errorMessage}");
         var nextMessage = new FinishedRequestMessage()
         {

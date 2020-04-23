@@ -47,17 +47,26 @@ public class DownloadWorker : BackgroundService
         var msg = _queueService.ReceiveDownloadRequest();
         if (msg != null)
         {
-            var sha1 = await ProcessRequest(msg);
-            msg.Sha1 = sha1;
-            _logger.LogDebug($"SHA1 for request {msg.RequestId} is {sha1}");
-            var zipPath = $"{sha1}.zip";
-            if (_storageService.Exists(zipPath))
+            try
             {
-                ForwardAlreadyExistsMessage(msg, zipPath);
-                await _storageService.DeleteAsync(msg.RequestId);
+
+                var sha1 = await ProcessRequest(msg);
+                msg.Sha1 = sha1;
+                _logger.LogDebug($"SHA1 for request {msg.RequestId} is {sha1}");
+                var zipPath = $"{sha1}.zip";
+                if (_storageService.Exists(zipPath))
+                {
+                    ForwardAlreadyExistsMessage(msg, zipPath);
+                    await _storageService.DeleteAsync(msg.RequestId);
+                }
+                else
+                    ForwardMessage(msg);
             }
-            else
-                ForwardMessage(msg);
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error processing request {msg.RequestId}: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
+                ForwardError(msg, ex.Message);
+            }
             _logger.LogDebug("Download worker run finished");
         }
         else
@@ -101,6 +110,20 @@ public class DownloadWorker : BackgroundService
         };
         _queueService.SendMessage(nextMessage);
         _logger.LogDebug($"Forwarded scan request for {message.RequestId}");
+    }
+
+    public void ForwardError(DownloadRequestMessage message, string errorMessage)
+    {
+        _logger.LogDebug($"Registering error for {message.RequestId}. Error message: {errorMessage}");
+        var nextMessage = new FinishedRequestMessage()
+        {
+            RequestId = message.RequestId,
+            Sha1 = message.Sha1,
+            RequestResult = RequestResult.Error,
+            Message = errorMessage
+        };
+        _queueService.SendMessage(nextMessage);
+        _logger.LogDebug($"Registered error for {message.RequestId}");
     }
 
     public override async Task StopAsync(CancellationToken stoppingToken)

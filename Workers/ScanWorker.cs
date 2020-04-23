@@ -48,21 +48,29 @@ public class ScanWorker : BackgroundService
         var msg = _queueService.ReceiveScanRequest();
         if (msg != null)
         {
-            bool isSafe = false;
-            var scanned = TryScan(msg.Sha1, out isSafe);
-            if (scanned)
+            try
             {
-                _logger.LogInformation($"Scan finished for request {msg.RequestId}");
-                if (isSafe)
-                    ForwardMessage(msg);
+                bool isSafe = false;
+                var scanned = TryScan(msg.Sha1, out isSafe);
+                if (scanned)
+                {
+                    _logger.LogInformation($"Scan finished for request {msg.RequestId}");
+                    if (isSafe)
+                        ForwardMessage(msg);
+                    else
+                        ForwardError(msg, "Threat detected by Security scan");
+                }
                 else
-                    ForwardError(msg, "Threat detected by Security scan");
+                {
+                    _logger.LogInformation($"No previous security scan report found for request {msg.RequestId}");
+                    await RequestScanAsync(msg);
+                    RequeueMessage(msg);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogInformation($"No previous security scan report found for request {msg.RequestId}");
-                await RequestScanAsync(msg);
-                RequeueMessage(msg);
+                _logger.LogError($"Error processing request {msg.RequestId}: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
+                ForwardError(msg, ex.Message);
             }
 
             _logger.LogDebug("Scan worker run finished");
