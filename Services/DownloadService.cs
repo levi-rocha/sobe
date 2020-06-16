@@ -5,44 +5,47 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-public interface IDownloadService
+namespace SOBE.Services
 {
-    Task<string> DownloadAsync(string fileUrl, string fileName);
-}
-
-public class LocalDownloadService : IDownloadService
-{
-    private readonly HttpClient _httpClient;
-    private readonly LocalStorageService _storageService;
-
-    public LocalDownloadService(HttpClient httpClient, LocalStorageService storageService)
+    public interface IDownloadService
     {
-        _httpClient = httpClient;
-        _storageService = storageService;
+        Task<string> DownloadAsync(string fileUrl, string fileName);
     }
 
-    public async Task<string> DownloadAsync(string fileUrl, string fileName)
+    public class LocalDownloadService : IDownloadService
     {
-        var response = await _httpClient.GetAsync(fileUrl);
-        string sha1 = string.Empty;
-        if (response.IsSuccessStatusCode)
+        private readonly HttpClient _httpClient;
+        private readonly LocalStorageService _storageService;
+
+        public LocalDownloadService(HttpClient httpClient, LocalStorageService storageService)
         {
-            var path = _storageService.GetFullPath(fileName);
-            using (var fs = File.Create(path))
+            _httpClient = httpClient;
+            _storageService = storageService;
+        }
+
+        public async Task<string> DownloadAsync(string fileUrl, string fileName)
+        {
+            var response = await _httpClient.GetAsync(fileUrl);
+            string sha1 = string.Empty;
+            if (response.IsSuccessStatusCode)
             {
-                await response.Content.CopyToAsync(fs);
-                using (SHA1Managed sha1managed = new SHA1Managed())
+                var path = _storageService.GetFullPath(fileName);
+                using (var fs = File.Create(path))
                 {
-                    byte[] hash = sha1managed.ComputeHash(fs);
-                    var formatted = new StringBuilder(2 * hash.Length);
-                    foreach (byte b in hash)
+                    await response.Content.CopyToAsync(fs);
+                    using (SHA1Managed sha1managed = new SHA1Managed())
                     {
-                        formatted.AppendFormat("{0:X2}", b);
+                        byte[] hash = sha1managed.ComputeHash(fs);
+                        var formatted = new StringBuilder(2 * hash.Length);
+                        foreach (byte b in hash)
+                        {
+                            formatted.AppendFormat("{0:X2}", b);
+                        }
+                        sha1 = formatted.ToString();
                     }
-                    sha1 = formatted.ToString();
                 }
             }
+            return sha1;
         }
-        return sha1;
     }
 }
