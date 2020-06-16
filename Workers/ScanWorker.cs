@@ -6,159 +6,162 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SOBE.Services;
 
-public class ScanWorker : BackgroundService
+namespace SOBE.Workers
 {
-    private readonly ILogger _logger;
-    private readonly IServiceProvider _services;
-    private IQueueService _queueService;
-    private IStorageService _storageService;
-    private IScanService _scanService;
-
-    public ScanWorker(IServiceProvider services, ILogger<ScanWorker> logger)
+    public class ScanWorker : BackgroundService
     {
-        _logger = logger;
-        _services = services;
-    }
+        private readonly ILogger _logger;
+        private readonly IServiceProvider _services;
+        private IQueueService _queueService;
+        private IStorageService _storageService;
+        private IScanService _scanService;
 
-    protected override async Task ExecuteAsync(CancellationToken stopToken)
-    {
-        _logger.LogInformation("Scan Worker starting");
-        await StartWorkerAsync(stopToken);
-    }
-
-    private async Task StartWorkerAsync(CancellationToken stopToken)
-    {
-        await Task.Yield();
-        var applicationStoppingToken = _services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
-        using (var scope = _services.CreateScope())
+        public ScanWorker(IServiceProvider services, ILogger<ScanWorker> logger)
         {
-            _queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
-            _storageService = scope.ServiceProvider.GetRequiredService<IStorageService>();
-            _scanService = scope.ServiceProvider.GetRequiredService<IScanService>();
-            while (!stopToken.IsCancellationRequested && !applicationStoppingToken.IsCancellationRequested)
+            _logger = logger;
+            _services = services;
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stopToken)
+        {
+            _logger.LogInformation("Scan Worker starting");
+            await StartWorkerAsync(stopToken);
+        }
+
+        private async Task StartWorkerAsync(CancellationToken stopToken)
+        {
+            await Task.Yield();
+            var applicationStoppingToken = _services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
+            using (var scope = _services.CreateScope())
             {
-                await DoWorkAsync();
+                _queueService = scope.ServiceProvider.GetRequiredService<IQueueService>();
+                _storageService = scope.ServiceProvider.GetRequiredService<IStorageService>();
+                _scanService = scope.ServiceProvider.GetRequiredService<IScanService>();
+                while (!stopToken.IsCancellationRequested && !applicationStoppingToken.IsCancellationRequested)
+                {
+                    await DoWorkAsync();
+                }
             }
         }
-    }
 
-    public async Task DoWorkAsync()
-    {
-        _logger.LogDebug("Scan worker run started");
-        var msg = _queueService.ReceiveScanRequest();
-        if (msg != null)
+        public async Task DoWorkAsync()
         {
+            _logger.LogDebug("Scan worker run started");
+            var msg = _queueService.ReceiveScanRequest();
+            if (msg != null)
+            {
+                try
+                {
+                    bool isSafe = false;
+                    var scanned = TryScan(msg.Sha1, out isSafe);
+                    if (scanned)
+                    {
+                        _logger.LogInformation($"Scan finished for request {msg.RequestId}");
+                        if (isSafe)
+                            ForwardMessage(msg);
+                        else
+                            ForwardError(msg, "Threat detected by Security scan");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"No previous security scan report found for request {msg.RequestId}");
+                        await RequestScanAsync(msg);
+                        RequeueMessage(msg);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error processing request {msg.RequestId}: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
+                    ForwardError(msg, ex.Message);
+                }
+
+                _logger.LogDebug("Scan worker run finished");
+            }
+            else
+            {
+                _logger.LogDebug("No scan message received");
+            }
+            Thread.Sleep(TimeSpan.FromSeconds(30)); //todo: extract and change
+        }
+
+        public bool TryScan(string sha1, out bool isSafe)
+        {
+            isSafe = false;
             try
             {
-                bool isSafe = false;
-                var scanned = TryScan(msg.Sha1, out isSafe);
-                if (scanned)
-                {
-                    _logger.LogInformation($"Scan finished for request {msg.RequestId}");
-                    if (isSafe)
-                        ForwardMessage(msg);
-                    else
-                        ForwardError(msg, "Threat detected by Security scan");
-                }
-                else
-                {
-                    _logger.LogInformation($"No previous security scan report found for request {msg.RequestId}");
-                    await RequestScanAsync(msg);
-                    RequeueMessage(msg);
-                }
+                isSafe = _scanService.IsSafe(sha1).Result;
+                _logger.LogDebug($"isSafe set to {isSafe.ToString()}");
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error processing request {msg.RequestId}: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
-                ForwardError(msg, ex.Message);
+                _logger.LogError($"Error while checking for scan report {ex.Message}");
+                return false;
             }
-
-            _logger.LogDebug("Scan worker run finished");
         }
-        else
+
+        public async Task RequestScanAsync(ScanRequestMessage msg)
         {
-            _logger.LogDebug("No scan message received");
+            _logger.LogInformation($"Requesting security scan for request {msg.RequestId}");
+            try
+            {
+                var contentStream = await _storageService.GetAsStreamAsync(msg.FilePath);
+                await _scanService.RequestScanAsync(contentStream);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error during scan request: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
+            }
         }
-        Thread.Sleep(TimeSpan.FromSeconds(30)); //todo: extract and change
-    }
 
-    public bool TryScan(string sha1, out bool isSafe)
-    {
-        isSafe = false;
-        try
+        public void ForwardMessage(ScanRequestMessage message)
         {
-            isSafe = _scanService.IsSafe(sha1).Result;
-            _logger.LogDebug($"isSafe set to {isSafe.ToString()}");
-            return true;
+            _logger.LogDebug($"Forwarding zip request for {message.RequestId}");
+            var nextMessage = new ZipRequestMessage()
+            {
+                RequestId = message.RequestId,
+                Sha1 = message.Sha1,
+                FileName = message.FileName,
+                FilePath = message.FilePath
+            };
+            _queueService.SendMessage(nextMessage);
+            _logger.LogDebug($"Forwarded zip request for {message.RequestId}");
         }
-        catch (Exception ex)
+
+        public void RequeueMessage(ScanRequestMessage message)
         {
-            _logger.LogError($"Error while checking for scan report {ex.Message}");
-            return false;
+            _logger.LogDebug($"Requeueing scan request for {message.RequestId}");
+            var nextMessage = new ScanRequestMessage()
+            {
+                RequestId = message.RequestId,
+                Sha1 = message.Sha1,
+                FileName = message.FileName,
+                FilePath = message.FilePath
+            };
+            _queueService.SendMessage(nextMessage);
+            _logger.LogDebug($"Requeueing scan request for {message.RequestId}");
         }
-    }
 
-    public async Task RequestScanAsync(ScanRequestMessage msg)
-    {
-        _logger.LogInformation($"Requesting security scan for request {msg.RequestId}");
-        try
+        public void ForwardError(ScanRequestMessage message, string errorMessage)
         {
-            var contentStream = await _storageService.GetAsStreamAsync(msg.FilePath);
-            await _scanService.RequestScanAsync(contentStream);
+            _logger.LogDebug($"Registering error for {message.RequestId}. Error message: {errorMessage}");
+            var nextMessage = new FinishedRequestMessage()
+            {
+                RequestId = message.RequestId,
+                Sha1 = message.Sha1,
+                RequestResult = RequestResult.Error,
+                Message = errorMessage
+            };
+            _queueService.SendMessage(nextMessage);
+            _logger.LogDebug($"Registered error for {message.RequestId}");
         }
-        catch (Exception ex)
+
+        public override async Task StopAsync(CancellationToken stoppingToken)
         {
-            _logger.LogError($"Error during scan request: {ex.Message} | StackTrace: {ex.StackTrace.ToString()}");
+            _logger.LogInformation(
+                "Scan worker is stopping.");
+
+            await Task.CompletedTask;
         }
-    }
-
-    public void ForwardMessage(ScanRequestMessage message)
-    {
-        _logger.LogDebug($"Forwarding zip request for {message.RequestId}");
-        var nextMessage = new ZipRequestMessage()
-        {
-            RequestId = message.RequestId,
-            Sha1 = message.Sha1,
-            FileName = message.FileName,
-            FilePath = message.FilePath
-        };
-        _queueService.SendMessage(nextMessage);
-        _logger.LogDebug($"Forwarded zip request for {message.RequestId}");
-    }
-
-    public void RequeueMessage(ScanRequestMessage message)
-    {
-        _logger.LogDebug($"Requeueing scan request for {message.RequestId}");
-        var nextMessage = new ScanRequestMessage()
-        {
-            RequestId = message.RequestId,
-            Sha1 = message.Sha1,
-            FileName = message.FileName,
-            FilePath = message.FilePath
-        };
-        _queueService.SendMessage(nextMessage);
-        _logger.LogDebug($"Requeueing scan request for {message.RequestId}");
-    }
-
-    public void ForwardError(ScanRequestMessage message, string errorMessage)
-    {
-        _logger.LogDebug($"Registering error for {message.RequestId}. Error message: {errorMessage}");
-        var nextMessage = new FinishedRequestMessage()
-        {
-            RequestId = message.RequestId,
-            Sha1 = message.Sha1,
-            RequestResult = RequestResult.Error,
-            Message = errorMessage
-        };
-        _queueService.SendMessage(nextMessage);
-        _logger.LogDebug($"Registered error for {message.RequestId}");
-    }
-
-    public override async Task StopAsync(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation(
-            "Scan worker is stopping.");
-
-        await Task.CompletedTask;
     }
 }

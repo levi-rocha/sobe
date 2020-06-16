@@ -5,12 +5,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using SOBE.Models;
 
 namespace SOBE.Services
 {
     public interface IStorageService
     {
-        Task<string> DownloadFromUrlAsync(string fileUrl, string filePath);
+        Task<DownloadResult> DownloadFromUrlAsync(string fileUrl, string filePath);
         Task WriteAsync(Stream stream, string filePath);
         Task<Stream> GetAsStreamAsync(string filePath);
         bool Exists(string path);
@@ -32,7 +33,7 @@ namespace SOBE.Services
                 Directory.CreateDirectory(BASE_PATH);
         }
 
-        public async Task<string> DownloadFromUrlAsync(string fileUrl, string filePath)
+        public async Task<DownloadResult> DownloadFromUrlAsync(string fileUrl, string filePath)
         {
             var extension = await GetExtensionFromUrl(fileUrl);
             var responseStream = await _httpClient.GetStreamAsync(fileUrl);
@@ -48,18 +49,28 @@ namespace SOBE.Services
                 sha1 = CalculateSHA1(fs);
                 _logger.LogDebug($"Calculated SHA1: {sha1}");
             }
-            var permPath = Path.Combine(basePath, $"{sha1}{extension}");
+            var fileName = $"{sha1}{extension}";
+            var permPath = Path.Combine(basePath, fileName);
             File.Move(path, permPath);
-            return sha1;
+            return new DownloadResult(sha1, fileName);
         }
 
         private async Task<string> GetExtensionFromUrl(string fileUrl)
         {
+            var extension = GetExtensionIfPresent(fileUrl);
+            if (extension != null)
+                return extension;
             var res = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, fileUrl));
-            var absoluteUri = res.RequestMessage.RequestUri.AbsoluteUri.Split('?')[0];
-            var splitByPeriod = absoluteUri.Split('.');
-            var extension = $".{splitByPeriod[splitByPeriod.Length - 1]}";
-            return extension;
+            var absoluteUri = res.RequestMessage.RequestUri.AbsoluteUri;
+            return GetExtensionIfPresent(absoluteUri);
+        }
+
+        private static string GetExtensionIfPresent(string fileUrl)
+        {
+            var noParams = fileUrl.Split('?')[0];
+            var splitByPeriod = noParams.Split('.'); 
+            var potentialExtension = splitByPeriod[splitByPeriod.Length-1];
+            return potentialExtension.Length == 3 || potentialExtension.Length == 4 ? $".{potentialExtension}" : null;
         }
 
         private static string CalculateSHA1(FileStream fs)

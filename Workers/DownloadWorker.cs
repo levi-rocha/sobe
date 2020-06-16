@@ -51,10 +51,9 @@ namespace SOBE.Workers
             {
                 try
                 {
-                    var sha1 = await ProcessRequest(msg);
-                    msg.Sha1 = sha1;
-                    _logger.LogDebug($"SHA1 for request {msg.RequestId} is {sha1}");
-                    var zipPath = $"{sha1}.zip";
+                    msg = await ProcessRequest(msg);
+                    _logger.LogDebug($"SHA1 for request {msg.RequestId} is {msg.Sha1}");
+                    var zipPath = $"{msg.Sha1}.zip";
                     if (_storageService.Exists(zipPath))
                     {
                         ForwardAlreadyExistsMessage(msg, zipPath);
@@ -91,12 +90,14 @@ namespace SOBE.Workers
             _logger.LogDebug($"Registered request {message.RequestId} as finished");
         }
 
-        public async Task<string> ProcessRequest(DownloadRequestMessage request)
+        public async Task<DownloadRequestMessage> ProcessRequest(DownloadRequestMessage request)
         {
             _logger.LogInformation($"Downloading request {request.RequestId}");
-            var sha1 = await _storageService.DownloadFromUrlAsync(request.FileUrl, request.RequestId);
+            var downloadResult = await _storageService.DownloadFromUrlAsync(request.FileUrl, request.RequestId);
             _logger.LogInformation($"Finished download for request {request.RequestId}");
-            return sha1;
+            request.Sha1 = downloadResult.Sha1;
+            request.FileName = request.FileName ?? downloadResult.FileName;
+            return request;
         }
 
         public void ForwardMessage(DownloadRequestMessage message)

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SOBE.Services;
+using SOBE.Workers;
 
 namespace SOBE
 {
