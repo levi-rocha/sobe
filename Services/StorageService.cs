@@ -65,12 +65,23 @@ namespace SOBE.Services
             return GetExtensionIfPresent(absoluteUri);
         }
 
-        private static string GetExtensionIfPresent(string fileUrl)
+        private string GetExtensionIfPresent(string fileUrl)
         {
             var noParams = fileUrl.Split('?')[0];
             var splitByPeriod = noParams.Split('.'); 
-            var potentialExtension = splitByPeriod[splitByPeriod.Length-1];
-            return potentialExtension.Length == 3 || potentialExtension.Length == 4 ? $".{potentialExtension}" : null;
+            var potentialExtension = splitByPeriod[splitByPeriod.Length-1].Replace("/", "");
+            return (potentialExtension.Length == 3 || potentialExtension.Length == 4) && !IsWebsiteExtension(potentialExtension) ? $".{potentialExtension}" : null;
+        }
+
+        private static bool IsWebsiteExtension(string extension)
+        {
+            var websiteExtensions = new[] { "org", "net", "com", "int", "edu", "gov", "mil" };
+            foreach (var ext in websiteExtensions)
+            {
+                if (extension == ext)
+                    return true;
+            }
+            return false;
         }
 
         private static string CalculateSHA1(FileStream fs)

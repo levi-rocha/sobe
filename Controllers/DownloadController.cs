@@ -38,7 +38,7 @@ namespace SOBE.Controllers
         [Produces("application/json")]
         public ActionResult<RequestHandle> Post(DownloadRequest downloadRequest)
         {
-            var outputName = downloadRequest.OutputName ?? Path.GetFileName(downloadRequest.FileUrl);
+            var outputName = downloadRequest.OutputName;
             var requestId = Guid.NewGuid();
             var result = new RequestHandle { Id = requestId, Message = "File successfully submitted for processing" };
             _queue.SendMessage(new DownloadRequestMessage() { FileUrl = downloadRequest.FileUrl, FileName = outputName, RequestId = requestId.ToString() });
