@@ -75,7 +75,7 @@ namespace SOBE.Services
 
         private static bool IsWebsiteExtension(string extension)
         {
-            var websiteExtensions = new[] { "org", "net", "com", "int", "edu", "gov", "mil" };
+            var websiteExtensions = new[] { "org", "net", "com", "int", "edu", "gov", "mil", "io", "ca" };
             foreach (var ext in websiteExtensions)
             {
                 if (extension == ext)

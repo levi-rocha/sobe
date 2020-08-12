@@ -38,7 +38,7 @@ namespace SOBE.Controllers
         [Produces("application/json")]
         public ActionResult<RequestHandle> Post(DownloadRequest downloadRequest)
         {
-            // todo: + journalisation (audit)
+            // todo: + journalisation responsable (Build.RequestedFor, Build.RequestedForEmail)
             var outputName = downloadRequest.OutputName;
             var requestId = Guid.NewGuid();
             var result = new RequestHandle { Id = requestId, Message = "File successfully submitted for processing" };
