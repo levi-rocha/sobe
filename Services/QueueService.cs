@@ -9,6 +9,7 @@ namespace SOBE.Services
         public string RequestId { get; set; }
         public string Sha1 { get; set; }
         public string FileName { get; set; }
+        public string Owner { get; set; }
     }
 
     public class DownloadRequestMessage : RequestMessage
