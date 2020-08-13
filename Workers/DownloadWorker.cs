@@ -84,7 +84,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 FilePath = zipPath,
-                RequestResult = RequestResult.ReadyForDownload
+                RequestResult = RequestResult.ReadyForDownload,
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Registered request {message.RequestId} as finished");
@@ -108,7 +109,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 FileName = message.FileName,
-                FilePath = Path.Combine(message.RequestId, message.FileName)
+                FilePath = Path.Combine(message.RequestId, message.FileName),
+                Owner = message.Owner,
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Forwarded scan request for {message.RequestId}");
@@ -122,7 +124,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 RequestResult = RequestResult.Error,
-                Message = errorMessage
+                Message = errorMessage,
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Registered error for {message.RequestId}");

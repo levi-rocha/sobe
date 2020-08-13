@@ -60,7 +60,10 @@ namespace SOBE.Workers
                         if (isSafe)
                             ForwardMessage(msg);
                         else
+                        {
+                            _logger.LogWarning("Threat detected by security scan for request {requestId} requested by {owner}, sha1: {sha1}", msg.RequestId, msg.Owner, msg.Sha1);
                             ForwardError(msg, "Threat detected by Security scan");
+                        }
                     }
                     else
                     {
@@ -122,7 +125,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 FileName = message.FileName,
-                FilePath = message.FilePath
+                FilePath = message.FilePath,
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Forwarded zip request for {message.RequestId}");
@@ -136,7 +140,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 FileName = message.FileName,
-                FilePath = message.FilePath
+                FilePath = message.FilePath,
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Requeueing scan request for {message.RequestId}");
@@ -150,7 +155,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 RequestResult = RequestResult.Error,
-                Message = errorMessage
+                Message = errorMessage,
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Registered error for {message.RequestId}");

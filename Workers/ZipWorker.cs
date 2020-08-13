@@ -88,7 +88,8 @@ namespace SOBE.Workers
                 FileName = Path.GetFileName(zipPath),
                 FilePath = zipPath,
                 RequestResult = RequestResult.ReadyForDownload,
-                Message = "File processed successfuly"
+                Message = "File processed successfuly",
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Registered finished request for {message.RequestId}");
@@ -102,7 +103,8 @@ namespace SOBE.Workers
                 RequestId = message.RequestId,
                 Sha1 = message.Sha1,
                 RequestResult = RequestResult.Error,
-                Message = errorMessage
+                Message = errorMessage,
+                Owner = message.Owner
             };
             _queueService.SendMessage(nextMessage);
             _logger.LogDebug($"Registered error for {message.RequestId}");

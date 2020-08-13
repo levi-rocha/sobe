@@ -3,7 +3,9 @@ using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using SOBE.Options;
 
 public interface IScanService
 {
@@ -13,22 +15,23 @@ public interface IScanService
 
 public class VirusTotalScanService : IScanService
 {
-    private const string VIRUSTOTAL_APIKEY = "ec544f93a52305cafa0273d4d3ac54e89db0d94a82468b5a9130ef1bb1e9b7ba";
     private const string ENDPOINT_VIRUSTOTAL_REPORT = "https://www.virustotal.com/vtapi/v2/file/report";
     private const string ENDPOINT_VIRUSTOTAL_SCAN = "https://www.virustotal.com/vtapi/v2/file/scan";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
+    private readonly ScanOptions _scanOptions;
 
-    public VirusTotalScanService(HttpClient httpClient, ILogger<VirusTotalScanService> logger)
+    public VirusTotalScanService(HttpClient httpClient, ILogger<VirusTotalScanService> logger, IOptions<ScanOptions> scanOptions)
     {
         _logger = logger;
         _httpClient = httpClient;
+        _scanOptions = scanOptions.Value;
     }
 
     public Task<bool> IsSafe(string sha1)
     {
-        var urlReport = $"{ENDPOINT_VIRUSTOTAL_REPORT}?resource={sha1}&apikey={VIRUSTOTAL_APIKEY}";
+        var urlReport = $"{ENDPOINT_VIRUSTOTAL_REPORT}?resource={sha1}&apikey={_scanOptions.VirusTotalApiKey}";
         var response = JsonConvert.DeserializeObject<dynamic>(_httpClient.GetAsync(urlReport).Result.Content.ReadAsStringAsync().Result);
         _logger.LogDebug($"response virustotal: response code: {response.response_code} | positives: {response.positives}");
         if (response.response_code == 1)
@@ -40,7 +43,7 @@ public class VirusTotalScanService : IScanService
     public async Task RequestScanAsync(Stream contentStream)
     {
         var content = new MultipartFormDataContent();
-        content.Add(new StringContent(VIRUSTOTAL_APIKEY), "apikey");
+        content.Add(new StringContent(_scanOptions.VirusTotalApiKey), "apikey");
         content.Add(new StreamContent(contentStream), "file");
         var response = await _httpClient.PostAsync(ENDPOINT_VIRUSTOTAL_SCAN, content);
         if (!response.IsSuccessStatusCode)

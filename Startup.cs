@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using SOBE.Options;
 
 namespace SOBE
 {
@@ -38,6 +39,9 @@ namespace SOBE
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath);
             });
+            // Configure options
+            services.Configure<AuthOptions>(Configuration.GetSection("Auth"));
+            services.Configure<ScanOptions>(Configuration.GetSection("Scan"));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
