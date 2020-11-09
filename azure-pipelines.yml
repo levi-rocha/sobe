@@ -20,21 +20,11 @@ stages:
     pool:
       vmImage: 'ubuntu-latest'
     steps:
-    - task: DotNetCoreCLI@2
-      inputs:
-        command: 'publish'
-        publishWebProjects: true
-        arguments: '-c Release'
-    - task: DotNetCoreCLI@2
-      inputs:
-        command: 'build'
-        arguments: '-c Release'
-        workingDirectory: '$(Build.SourcesDirectory)'
     - task: Docker@2
       inputs:
         command: 'build'
-        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        buildContext: '$(Build.SourcesDirectory)'
+        dockerfile: '**/Dockerfile'
+        buildContext: '**'
         tags: 'sobe'
     - task: Bash@3
       inputs:
