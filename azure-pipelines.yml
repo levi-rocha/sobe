@@ -25,12 +25,6 @@ stages:
         command: 'publish'
         publishWebProjects: true
         arguments: '-c Release'
-    - task: Bash@3
-      inputs:
-        targetType: 'inline'
-        script: |
-          echo 'Hello world'
-          docker -version
     - task: Docker@2
       displayName: Build an image
       inputs:
@@ -38,3 +32,11 @@ stages:
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
         tags: |
           $(tag)
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo 'Hello world'
+          docker login -u "conseilrqauto" -p "BYXRefe=XifDP2OjCDVxH7ZRYvK5igvP" conseilrqauto.azurecr.io
+          docker tag sobe conseilrqauto.azurecr.io/sobe
+          docker push conseilrqauto.azurecr.io/sobe
