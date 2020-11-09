@@ -25,6 +25,11 @@ stages:
         command: 'publish'
         publishWebProjects: true
         arguments: '-c Release'
+    - task: Docker@2
+      inputs:
+        command: 'build'
+        Dockerfile: '**/Dockerfile'
+        tags: 'sobe'
     - task: Bash@3
       inputs:
         targetType: 'inline'
@@ -34,3 +39,4 @@ stages:
           docker login -u "conseilrqauto" -p "BYXRefe=XifDP2OjCDVxH7ZRYvK5igvP" conseilrqauto.azurecr.io
           docker tag sobe conseilrqauto.azurecr.io/sobe
           docker push conseilrqauto.azurecr.io/sobe
+    
