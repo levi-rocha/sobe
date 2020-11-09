@@ -29,10 +29,11 @@ stages:
       displayName: Build an image
       inputs:
         command: build
-        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        buildContext: '$(Build.SourcesDirectory)'
+        Dockerfile: '$(Agent.BuildDirectory)/s/server/Dockerfile'
+        buildContext: '$(Agent.BuildDirectory)/s'
         tags: |
           $(tag)
+    
     - task: Bash@3
       inputs:
         targetType: 'inline'
