@@ -25,18 +25,23 @@ stages:
         command: 'publish'
         publishWebProjects: true
         arguments: '-c Release'
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'build'
+        arguments: '-c Release'
+        workingDirectory: '$(Build.SourcesDirectory)'
     - task: Docker@2
       inputs:
         command: 'build'
-        Dockerfile: '**/Dockerfile'
-        buildContext: ./
+        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        buildContext: '$(Build.SourcesDirectory)'
         tags: 'sobe'
     - task: Bash@3
       inputs:
         targetType: 'inline'
+        workingDirectory: '$(Build.SourcesDirectory)'
         script: |
           echo 'Hello world'
-          docker build -t sobe .
           docker login -u "conseilrqauto" -p "BYXRefe=XifDP2OjCDVxH7ZRYvK5igvP" conseilrqauto.azurecr.io
           docker tag sobe conseilrqauto.azurecr.io/sobe
           docker push conseilrqauto.azurecr.io/sobe
