@@ -29,6 +29,7 @@ stages:
       inputs:
         command: 'build'
         Dockerfile: '**/Dockerfile'
+        buildContext: ./
         tags: 'sobe'
     - task: Bash@3
       inputs:
