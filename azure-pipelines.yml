@@ -20,20 +20,15 @@ stages:
     pool:
       vmImage: 'ubuntu-latest'
     steps:
-    - task: Docker@2
-      inputs:
-        command: 'build'
-        dockerfile: '**/Dockerfile'
-        buildContext: '**'
-        tags: 'sobe'
     - task: Bash@3
       inputs:
         targetType: 'inline'
         workingDirectory: '$(Build.SourcesDirectory)'
         script: |
           echo 'Hello world'
-          docker images
           docker login -u "conseilrqauto" -p "BYXRefe=XifDP2OjCDVxH7ZRYvK5igvP" conseilrqauto.azurecr.io
+          docker build -t sobe .
+          docker images
           docker tag sobe conseilrqauto.azurecr.io/sobe
           docker push conseilrqauto.azurecr.io/sobe
     
