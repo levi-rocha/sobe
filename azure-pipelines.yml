@@ -29,7 +29,7 @@ stages:
       displayName: Build an image
       inputs:
         command: build
-        Dockerfile: '$(Agent.BuildDirectory)/s/server/Dockerfile'
+        Dockerfile: '$(Agent.BuildDirectory)/s/Dockerfile'
         buildContext: '$(Agent.BuildDirectory)/s'
         tags: |
           $(tag)
