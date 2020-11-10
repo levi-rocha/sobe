@@ -26,7 +26,7 @@ stages:
         workingDirectory: '$(Build.SourcesDirectory)'
         script: |
           docker build -t sobe .
-          #docker login -u "conseilrqauto" -p "$(ACR_PASSWORD)" conseilrqstaging.azurecr.io
-          #docker tag sobe conseilrqauto.azurecr.io/sobe
-          #docker push conseilrqauto.azurecr.io/sobe
+          docker login -u "conseilrqauto" -p "$(ACR_PASSWORD)" conseilrqauto.azurecr.io
+          docker tag sobe conseilrqauto.azurecr.io/sobe-staging
+          docker push conseilrqauto.azurecr.io/sobe-staging
     
